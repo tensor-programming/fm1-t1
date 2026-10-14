@@ -25,6 +25,16 @@ Thirteen engines with factory presets, four tracks (8 voices shared), a 64-step 
 ratchets, nudge, locks, automation, live and step recording), SEQ TOOLS, songs, effects, a MOD matrix, MIDI (USB and TRS,
 per-track channels, MIDI LEARN) and USB audio. More: [Features](https://github.com/hugelton/Felucca/wiki/Features).
 
+## Torso T-1 Algorithmic Sequencer Engine
+
+Felucca features a dedicated 6-track, 192 PPQN algorithmic generative sequencer engine based on the Torso T-1:
+- **Euclidean Rhythms & Pacing:** Björklund Euclidean generators ($E(p, s)$ up to 64 steps), circular rotation, and $Q15$ non-linear logarithmic/exponential ratchet pacing.
+- **Harmony & Voicing:** Downward scale quantizer across 16 musical scales, 12 diatonic chord voicings (Inversions, Drop-2, Drop-3, Spread), 8 arpeggiator styles, and 8 melodic phrase contours.
+- **Deterministic LFSR Random Modulation:** 16-bit Galois LFSR with cycle loop period locking (1, 2, 3, 4, 6 cycles) and 88-byte per-step parameter lock arena.
+- **Performance Modes:** Microsecond `[TEMP]` punch-in snapshot mode (instantaneous $0.081\ \mu\text{s}$ revert) and `[GLOBAL]` relative parameter offsets across all 6 tracks.
+- **Dual Routing:** Track 0 directly bridges to the internal 6-operator FM synth engine with voice stealing; Tracks 1–5 stream to hardware TRS-MIDI and USB-MIDI.
+- **Documentation:** For full control mapping and operational instructions, see [TORSO_T1_GUIDE.md](TORSO_T1_GUIDE.md).
+
 ## New in 1.6
 
 - **Your own UI colours:** COLOR has an eleventh value, CUSTOM, set in the web editor with a live preview on the FM-1

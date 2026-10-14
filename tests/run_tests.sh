@@ -197,7 +197,7 @@ OUT=build/host
 mkdir -p "$OUT"
 CC="${CC:-cc} -O1 -Wall -Wno-unused-function"
 fail=0
-run() { echo "== $1"; shift; "$@" || fail=1; }
+run() { step="$1"; echo "== $1"; shift; "$@" || { echo ">>> STEP FAILED: $step <<<"; fail=1; }; }
 
 $CC -o "$OUT/storage_test" tests/storage_test.c
 run "flash storage (A/B, torn writes)" "$OUT/storage_test"
@@ -210,6 +210,22 @@ run "keys and buttons: fast press, long release, bouncy contacts (one note each)
 
 $CC -o "$OUT/midi_uart_test" tests/midi_uart_test.c
 run "TRS MIDI parser" "$OUT/midi_uart_test"
+
+$CC -O2 -Ibuild/gen -Ifirmware/src -o "$OUT/torso_phase1_test" tests/torso_phase1_test.c firmware/src/torso_t1.c -lm
+run "Torso T-1 Phase 1 (environment baseline, RAM reservation, 192 PPQN timer, FreeRTOS priority hierarchy, micro-queue)" "$OUT/torso_phase1_test"
+
+$CC -O2 -Ibuild/gen -Ifirmware/src -o "$OUT/torso_phase2_test" tests/torso_phase2_test.c firmware/src/torso_t1.c firmware/src/torso_t1_algo.c -lm
+run "Torso T-1 Phase 2 (Bjorklund Euclidean rhythms, pace/ratchet, harmony/voicing, Galois LFSR, p-locks)" "$OUT/torso_phase2_test"
+
+$CC -O2 -Ibuild/gen -Ifirmware/src -o "$OUT/torso_phase3_test" tests/torso_phase3_test.c firmware/src/torso_t1.c firmware/src/torso_t1_algo.c firmware/src/torso_t1_pipeline.c -lm
+run "Torso T-1 Phase 3 (dual output routing, 6-track 192 PPQN pipeline, polyphony stress, ISR latency)" "$OUT/torso_phase3_test"
+
+$CC -O2 -Ibuild/gen -Ifirmware/src -o "$OUT/torso_phase4_test" tests/torso_phase4_test.c firmware/src/torso_t1.c firmware/src/torso_t1_algo.c firmware/src/torso_t1_pipeline.c firmware/src/torso_t1_state.c -lm
+run "Torso T-1 Phase 4 (TEMP mode, snapshot revert latency, global track offsets, SPI flash layout)" "$OUT/torso_phase4_test"
+
+$CC -O2 -Ibuild/gen -Ifirmware/src -o "$OUT/torso_phase5_test" tests/torso_phase5_test.c firmware/src/torso_t1.c firmware/src/torso_t1_algo.c firmware/src/torso_t1_pipeline.c firmware/src/torso_t1_state.c firmware/src/torso_t1_ui.c -lm
+run "Torso T-1 Phase 5 (UI & control surface, track/cycle navigation, 4-page encoder dispatch, card formatting, p-lock step editing)" "$OUT/torso_phase5_test"
+
 
 HALF=$(sed -n 's/^#define HALF_FRAMES \([0-9]*\).*/\1/p' firmware/src/core.h)
 $CC -O2 -DT_CDC=1 -DHALF_FRAMES=$HALF -o "$OUT/uac_test" tests/uac_test.c -lm
@@ -245,10 +261,14 @@ done
 $CC -DOWN_PKG=1 -o "$OUT/ota_test" tests/ota_test.c
 run "M-UPGRADE entry (own loader)" "$OUT/ota_test" build/felucca.fwsc
 
-head -c 200000 build/felucca.bin > "$OUT/old_app.bin"
-python3 tools/fm1pkg_make.py "$OUT/old_app.bin" build/loader/ota.bin "$OUT/old.fwsc" >/dev/null
-$CC -o "$OUT/ldr_test" tests/ldr_test.c
-run "update loader: other app -> this build" "$OUT/ldr_test" "$OUT/old.fwsc" build/felucca.fwsc
+if [ -f "$AC79_SDK/cpu/wl82/tools/uboot.boot" ]; then
+    head -c 200000 build/felucca.bin > "$OUT/old_app.bin"
+    python3 tools/fm1pkg_make.py "$OUT/old_app.bin" build/loader/ota.bin "$OUT/old.fwsc" >/dev/null
+    $CC -o "$OUT/ldr_test" tests/ldr_test.c
+    run "update loader: other app -> this build" "$OUT/ldr_test" "$OUT/old.fwsc" build/felucca.fwsc
+else
+    echo "== skip loader update test (no JieLi AC79 SDK in $AC79_SDK)"
+fi
 
 if [ -f build/gen/felucca_tables.h ]; then
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/hostsim" tests/hostsim.c -lm
@@ -375,7 +395,7 @@ if [ -f build/gen/felucca_tables.h ]; then
         "$OUT/union_test" tests/union_golden.txt
     $CC -w -Ibuild/gen -Ifirmware/src -o "$OUT/descdump" tests/descdump.c -lm
     echo "== parameter and engine tables as JSON (for the editor mock test)"
-    "$OUT/descdump" > "$OUT/desc.json" || fail=1
+    "$OUT/descdump" > "$OUT/desc.json" || { echo ">>> STEP FAILED: descdump <<<"; fail=1; }
     $CC -O2 -w -Ibuild/gen -Ifirmware/src -o "$OUT/phys_test" tests/phys_test.c -lm
     mkdir -p build/phys_demo
     run "PHYS: stability C-1..G9 over the parameter corners, worst-case cost against PHASE WIRE, demos" "$OUT/phys_test" build/phys_demo
@@ -409,6 +429,7 @@ if [ -f build/gen/felucca_tables.h ]; then
             build/slice_demo/loop build/slice_demo
     else
         echo "== SLICE: build/ was made with FELUCCA_SLICE=0 (no BREAK); run ./build.sh without it first"
+        echo ">>> STEP FAILED: SLICE not in samples <<<"
         fail=1
     fi
     # SAMPLE's PIANO (1.5: as 1.1.5), SLICE's PIANO (its middle C zone), 1.2's PIANO HD in a user slot
@@ -443,8 +464,10 @@ else
     A="$OUT/asan"
     SCC="${CC%% *} $SAN -Ibuild/gen -Ifirmware/src"
     export ASAN_OPTIONS="${ASAN_OPTIONS:-detect_leaks=0}"
-    $SCC -o "$A/ldr_test" tests/ldr_test.c
-    run "ASan/UBSan: update loader (other app -> this build)" "$A/ldr_test" "$OUT/old.fwsc" build/felucca.fwsc
+    if [ -f "$OUT/old.fwsc" ]; then
+        $SCC -o "$A/ldr_test" tests/ldr_test.c
+        run "ASan/UBSan: update loader (other app -> this build)" "$A/ldr_test" "$OUT/old.fwsc" build/felucca.fwsc
+    fi
     $SCC -DOWN_PKG=1 -o "$A/ota_test" tests/ota_test.c
     run "ASan/UBSan: M-UPGRADE entry (own loader)" "$A/ota_test" build/felucca.fwsc
     for t in editor_test project_test backup_test robust_test fun10_test fm6bank_test; do

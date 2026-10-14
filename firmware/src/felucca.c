@@ -72,6 +72,11 @@
 #endif
 #include "song_chain.c"
 #include "seq.c"
+#include "torso_t1.c"
+#include "torso_t1_algo.c"
+#include "torso_t1_pipeline.c"
+#include "torso_t1_state.c"
+#include "torso_t1_ui.c"
 #include "audio.c"
 
 /* -------------------------------------------------------------- UI --- */

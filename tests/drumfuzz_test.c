@@ -15,6 +15,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <stdint.h>
 #ifdef PREEMPT
 /* -DPREEMPT: the audio ISR emulated by a CPU-time signal that renders a block wherever the main loop is (as the
  * ALNK0 interrupt does), held off by fm1_irq_off / motion_guard as on the device */

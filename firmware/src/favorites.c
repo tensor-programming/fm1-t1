@@ -36,7 +36,7 @@ static int favorite_set(uint32_t engine, uint32_t preset, int on)
  * stays a built-in palette (the one in use before, or after): firmware before 1.6 shows that and keeps the bytes. The value
  * is in COLOR only while one is stored. Zero (every older setting) = none */
 #define ui_cpal (&favorites.factory[15][0])
-#define ui_cpal_flags (favorites.factory[15][12])
+#define ui_cpal_flags (*(volatile uint8_t *)&favorites.factory[15][12])
 #define CPAL_STORED 1u
 #define CPAL_ACTIVE 2u
 static uint32_t cpal_on(void) { return (ui_cpal_flags & (CPAL_STORED | CPAL_ACTIVE)) == (CPAL_STORED | CPAL_ACTIVE); }
